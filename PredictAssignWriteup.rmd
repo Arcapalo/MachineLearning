@@ -103,7 +103,7 @@ modelFit = train(classe~., data=subsetTraining, method="rf",trControl=mcv5)
 ```
 
 ```{r}
-modtree = train(classe~.,data=subsetTraining,method="rpart",trControl=cv3)
+modtree = train(classe~.,data=subsetTraining,method="rpart",trControl=mcv5)
 ```
 
 We can check the performance of these two model on the training dataset
