@@ -1,0 +1,140 @@
+---
+title: "Prediction Assignment Writeup"
+author: "by Raimundo Wenceslau"
+date: "July 25, 2015"
+output: html_document
+---
+
+##Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+##Data Processing
+If the files are not in the working directory, R will download them.
+
+```{r}
+if (!file.exists("pml-training.csv")) {
+    download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+                  destfile = "pml-training.csv")
+}
+if (!file.exists("pml-testing.csv")) {
+    download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+                  destfile = "pml-testing.csv")
+}
+```
+
+###Preprocessing
+
+Two functions were created to manipulate and transform the data in order to obtain a tidy dataset. 
+The first one checks the presence of NA’s in the dataframe column, deleting those that have more than 90% of NA’s.
+The second funtion preprocesses the code by:
+
+. Manually removing the first attributes that have no predictive power and no additional information about exercise types.  
+. Converting columns to numeric type. 
+
+The first one is used to find and delete columns that have more than 90% of it made of NA’s. 
+Use the ‘nearZeroVar’ function from the caret package to diagnose predictors that have few unique values relative to the number of samples 
+or the ratio of the frequency of the most common value to the frequency of the second most common value is large).  
+In the second on, missing values still remains in the dataset, the caret function ‘preProcess’ can be used to input some of the missing values using a trained 
+bagged tree to predict the missing ones. These two functions decreased the number of variables from 159 to 52.
+
+```{r}
+# removing NA's appearing on more than 90% 
+checkingNAs <- function(vector){
+    if(sum(is.na(vector))/length(vector) > 0.9){
+        res <- TRUE;
+    }else{
+        res <- FALSE;
+    }
+    invisible(res);
+}
+
+# Function to pre-process dataframe
+preProcDF <- function(dataFrame){   
+    # removing non significant values
+    subsetTraining <- dataFrame[,-(1:7)]; 
+    end <- ncol(subsetTraining)
+    # converting into numeric
+    subsetTraining[,-end] <- data.frame(sapply(subsetTraining[,-end],as.numeric))
+    # verify which columns are made most of NAs
+    varsWith90NAs <- sapply(subsetTraining, checkingNAs);
+    # removing those columns
+    subsetTraining <- subsetTraining[,!varsWith90NAs];
+    # detect no contributing variables
+    nzv <- nearZeroVar(subsetTraining[,-end],saveMetrics = TRUE)
+    subsetTraining <- subsetTraining[,!as.logical(nzv$nzv)]
+    # if there are any remaining NA's
+    if(any(is.na(subsetTraining))){               
+        # imput these missing values
+        preProc <- preProcess(subsetTraining[,-end],method="bagImpute")
+        subsetTraining[,-end] <- predict(preProc,subsetTraining[,-end])
+        remove("preProc")                         # memory release    
+    }    
+    invisible(subsetTraining);
+}
+```
+
+Now, the ‘createDataPartition’ function will split data on training and validation set.
+
+```{r include=FALSE, cache=FALSE}
+library(caret)
+```
+
+```{r}
+set.seed(1234)
+# read training data
+training <- read.csv("pml-training.csv");
+#split into training and validation
+subsetTrainingIndex <- createDataPartition(training$classe, p=0.99, list = FALSE);
+subsetTraining <- training[subsetTrainingIndex,];
+# preprocess dataframe
+subsetTraining <- preProcDF(subsetTraining);
+```
+
+Next, using the tidy dataset created by the ‘preProcessDataFrame’ function, It was trained a random forest classifier.  
+Random forests are one on a diverse range of classifiers, each one with its pros and cons.  
+
+##Cross-Validation and Model Evaluation
+The problem presented is a classification, so using the classification tree algorithm and random force, I carried out 5-fold validation using the trainControl function.
+
+```{r}
+# model fit using random forests
+mcv5 = trainControl(method="cv",number=5,allowParallel=TRUE,verboseIter=TRUE)
+modelFit = train(classe~., data=subsetTraining, method="rf",trControl=mcv5)
+```
+
+```{r}
+modtree = train(classe~.,data=subsetTraining,method="rpart",trControl=cv3)
+```
+
+We can check the performance of these two model on the training dataset
+
+```{r}
+prf=predict(modelFit,training)
+ptree=predict(modtree,training)
+#table(prf,training$classe)
+table(prf,training$classe)
+#table(ptree,training$classe)
+table(ptree,training$classe)
+```
+
+For the testing dataset.  
+```{r}
+prf=predict(modelFit,testing)
+ptree=predict(modtree,testing)
+table(prf,ptree)
+```
+
+##Conclusion
+From the results, it seens that random forest model has the best accuracy for testing dataset.  
+
+```{r}
+result=predict(modelFit,testing)
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("Prediction_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+result
+```
