@@ -9,22 +9,10 @@ output: html_document
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
 
 ##Data Processing
-If the files are not in the working directory, R will download them.
-
-```{r}
-if (!file.exists("pml-training.csv")) {
-    download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
-                  destfile = "pml-training.csv")
-}
-if (!file.exists("pml-testing.csv")) {
-    download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
-                  destfile = "pml-testing.csv")
-}
-```
 
 ###Preprocessing
-
-Two functions were created to manipulate and transform the data in order to obtain a tidy dataset. 
+If the files are not in the working directory, R will download them.  
+After that, two functions were created to manipulate and transform the data in order to obtain a tidy dataset. 
 The first one checks the presence of NA’s in the dataframe column, deleting those that have more than 90% of NA’s.
 The second funtion preprocesses the code by:
 
@@ -38,6 +26,17 @@ In the second on, missing values still remains in the dataset, the caret functio
 bagged tree to predict the missing ones. These two functions decreased the number of variables from 159 to 52.
 
 ```{r}
+
+#If the files are not in the working directory, R will download them.
+if (!file.exists("pml-training.csv")) {
+    download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+                  destfile = "pml-training.csv")
+}
+if (!file.exists("pml-testing.csv")) {
+    download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+                  destfile = "pml-testing.csv")
+}  
+
 # removing NA's appearing on more than 90% 
 checkingNAs <- function(vector){
     if(sum(is.na(vector))/length(vector) > 0.9){
@@ -77,6 +76,8 @@ Now, the ‘createDataPartition’ function will split data on training and vali
 
 ```{r include=FALSE, cache=FALSE}
 library(caret)
+library(randomForest)
+library(rpart)
 ```
 
 ```{r}
@@ -88,6 +89,10 @@ subsetTrainingIndex <- createDataPartition(training$classe, p=0.99, list = FALSE
 subsetTraining <- training[subsetTrainingIndex,];
 # preprocess dataframe
 subsetTraining <- preProcDF(subsetTraining);
+
+subsetTesting <- training[-subsetTrainingIndex,];
+subsetTesting <- preProcDF(subsetTesting);
+subsetTesting <- subsetTesting[sample(1:nrow(subsetTesting), 50),];
 ```
 
 Next, using the tidy dataset created by the ‘preProcessDataFrame’ function, It was trained a random forest classifier.  
@@ -96,13 +101,10 @@ Random forests are one on a diverse range of classifiers, each one with its pros
 ##Cross-Validation and Model Evaluation
 The problem presented is a classification, so using the classification tree algorithm and random force, I carried out 5-fold validation using the trainControl function.
 
-```{r}
+```{r, message=FALSE}
 # model fit using random forests
 mcv5 = trainControl(method="cv",number=5,allowParallel=TRUE,verboseIter=TRUE)
 modelFit = train(classe~., data=subsetTraining, method="rf",trControl=mcv5)
-```
-
-```{r}
 modtree = train(classe~.,data=subsetTraining,method="rpart",trControl=mcv5)
 ```
 
@@ -119,8 +121,8 @@ table(ptree,training$classe)
 
 For the testing dataset.  
 ```{r}
-prf=predict(modelFit,testing)
-ptree=predict(modtree,testing)
+prf=predict(modelFit,subsetTesting)
+ptree=predict(modtree,subsetTesting)
 table(prf,ptree)
 ```
 
@@ -128,13 +130,6 @@ table(prf,ptree)
 From the results, it seens that random forest model has the best accuracy for testing dataset.  
 
 ```{r}
-result=predict(modelFit,testing)
-pml_write_files = function(x){
-  n = length(x)
-  for(i in 1:n){
-    filename = paste0("Prediction_",i,".txt")
-    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
-  }
-}
+result=predict(modelFit,subsetTesting)
 result
 ```
