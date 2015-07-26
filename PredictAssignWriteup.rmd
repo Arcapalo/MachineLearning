@@ -101,16 +101,14 @@ Random forests are one on a diverse range of classifiers, each one with its pros
 ##Cross-Validation and Model Evaluation
 The problem presented is a classification, so using the classification tree algorithm and random force, I carried out 5-fold validation using the trainControl function.
 
-```{r, message=FALSE}
+```{r, include=FALSE, cache=FALSE}
 # model fit using random forests
 mcv5 = trainControl(method="cv",number=5,allowParallel=TRUE,verboseIter=TRUE)
 modelFit = train(classe~., data=subsetTraining, method="rf",trControl=mcv5)
 modtree = train(classe~.,data=subsetTraining,method="rpart",trControl=mcv5)
-```
 
-We can check the performance of these two model on the training dataset
+#We can check the performance of these two model on the training dataset
 
-```{r}
 prf=predict(modelFit,training)
 ptree=predict(modtree,training)
 #table(prf,training$classe)
