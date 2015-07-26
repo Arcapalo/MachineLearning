@@ -76,11 +76,10 @@ img {
 <h2>Data Processing</h2>
 <div id="preprocessing" class="section level3">
 <h3>Preprocessing</h3>
-<p>If the files are not in the working directory, R will download them.</p>
-<p>After that, two functions were created to manipulate and transform the data in order to obtain a tidy dataset. The first one checks the presence of NA’s in the dataframe column, deleting those that have more than 90% of NA’s. The second funtion preprocesses the code by:</p>
+<p>If the files are not in the working directory, R will download them.<br />After that, two functions were created to manipulate and transform the data in order to obtain a tidy dataset. The first one checks the presence of NA’s in the dataframe column, deleting those that have more than 90% of NA’s. The second funtion preprocesses the code by:</p>
 <p>. Manually removing the first attributes that have no predictive power and no additional information about exercise types.<br />. Converting columns to numeric type.</p>
 <p>The first one is used to find and delete columns that have more than 90% of it made of NA’s. Use the ‘nearZeroVar’ function from the caret package to diagnose predictors that have few unique values relative to the number of samples or the ratio of the frequency of the most common value to the frequency of the second most common value is large).<br />In the second on, missing values still remains in the dataset, the caret function ‘preProcess’ can be used to input some of the missing values using a trained bagged tree to predict the missing ones. These two functions decreased the number of variables from 159 to 52.</p>
-<pre class="r"><code>
+<pre class="r"><code>#If the files are not in the working directory, R will download them.
 if (!file.exists(&quot;pml-training.csv&quot;)) {
     download.file(&quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;, 
                   destfile = &quot;pml-training.csv&quot;)
@@ -88,6 +87,7 @@ if (!file.exists(&quot;pml-training.csv&quot;)) {
 if (!file.exists(&quot;pml-testing.csv&quot;)) {
     download.file(&quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;, 
                   destfile = &quot;pml-testing.csv&quot;)
+}  
 
 # removing NA's appearing on more than 90% 
 checkingNAs &lt;- function(vector){
@@ -141,30 +141,6 @@ subsetTesting &lt;- subsetTesting[sample(1:nrow(subsetTesting), 50),];</code></p
 <div id="cross-validation-and-model-evaluation" class="section level2">
 <h2>Cross-Validation and Model Evaluation</h2>
 <p>The problem presented is a classification, so using the classification tree algorithm and random force, I carried out 5-fold validation using the trainControl function.</p>
-<pre class="r"><code># model fit using random forests
-mcv5 = trainControl(method=&quot;cv&quot;,number=5,allowParallel=TRUE,verboseIter=TRUE)
-modelFit = train(classe~., data=subsetTraining, method=&quot;rf&quot;,trControl=mcv5)
-modtree = train(classe~.,data=subsetTraining,method=&quot;rpart&quot;,trControl=mcv5)
-
-# We can check the performance of these two model on the training dataset
-prf=predict(modelFit,training)
-ptree=predict(modtree,training)
-table(prf,training$classe)
-table(ptree,training$classe)</code></pre>
-<pre><code>##    
-## prf    A    B    C    D    E
-##   A 5580    0    0    0    0
-##   B    0 3797    1    0    0
-##   C    0    0 3421    0    0
-##   D    0    0    0 3216    0
-##   E    0    0    0    0 3607
-
-## ptree    A    B    C    D    E
-##     A 5080 1581 1587 1449  524
-##     B   81 1286  108  568  486
-##     C  405  930 1727 1199  966
-##     D    0    0    0    0    0
-##     E   14    0    0    0 1631</code></pre>
 <p>For the testing dataset.</p>
 <pre class="r"><code>prf=predict(modelFit,subsetTesting)
 ptree=predict(modtree,subsetTesting)
